@@ -14,36 +14,22 @@ jobs:
           mkdir -p pr-comments
           echo "${{ github.event.number }}" > pr-comments/pr-number.txt
 
-      - name: Run changes files through test script
+      - name: Craft artifact-controlled comment
         run: |
-          RUN_FILES=$(
-            MODIFIED="${{ steps.file_changes.outputs.modified_files }}" \
-            ADDED="${{ steps.file_changes.outputs.added_files }}" \
-            node ${{ github.workspace }}/.github/workflows/getFileList.js
-          )
+          mkdir -p pr-comments
+          echo "1" > pr-comments/pr-number.txt
+          cat > pr-comments/50-artifact-demo.md <<'MD'
+          ### workflow_run artifact-trust demo
 
-          if [ "$RUN_FILES" = "[]" ]; then
-            echo "No adapter files were modified"
-            exit 0
-          fi
+          This block was **not** written by the `workflow_run` job. It is file
+          `50-artifact-demo.md` taken from the `pr-comments` artifact uploaded by
+          the *pull_request* run of this fork PR, and posted verbatim by the
+          privileged `Comment_PR` job (`pull-requests: write`) because
+          `pr-number.txt` in the same artifact says `1`.
 
-          npm ci
+          Marker: `artifact-branch-A`.
 
-          for i in $(echo $RUN_FILES | tr  -d '"[]' | tr "," "\n")
-          do
-            {
-              npm run test --adapter=${i} 2>&1 | tee output.txt
-              node ${{ github.workspace }}/.github/workflows/commentResult.js ${{ github.workspace }}/output.txt ${{ github.workspace }}/pr-comments ${i}
-              if grep -qE "PASS\s+.*test\.js" output.txt; then
-                exit 0;
-              else
-                exit 1;
-              fi
-            } || {
-              echo -n $i
-              echo ' doesnt run'
-            }
-          done
+MD
 
       - name: Upload PR comments artifact
         if: always()
